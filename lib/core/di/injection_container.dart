@@ -4,6 +4,8 @@ import '../../features/products/data/datasources/product_remote_datasource.dart'
 import '../../features/products/data/repositories/product_repository_impl.dart';
 import '../../features/products/domain/repositories/product_repository.dart';
 import '../../features/products/domain/usecases/get_all_products.dart';
+import '../../features/products/domain/usecases/get_product_by_id.dart';
+import '../../features/products/presentation/bloc/product_detail/product_detail_bloc.dart';
 import '../../features/products/presentation/bloc/products_bloc.dart';
 import '../network/dio_client.dart';
 import '../network/network_info.dart';
@@ -18,7 +20,7 @@ final sl = GetIt.instance;
 Future<void> initializeDependencies() async {
   //! Features - Products
 
-  // BLoC
+  // BLoCs
   // Registered as factory - new instance every time
   sl.registerFactory(
     () => ProductsBloc(
@@ -26,8 +28,15 @@ Future<void> initializeDependencies() async {
     ),
   );
 
+  sl.registerFactory(
+    () => ProductDetailBloc(
+      getProductById: sl(),
+    ),
+  );
+
   // Use Cases
   sl.registerLazySingleton(() => GetAllProducts(sl()));
+  sl.registerLazySingleton(() => GetProductById(sl()));
 
   // Repository
   sl.registerLazySingleton<ProductRepository>(

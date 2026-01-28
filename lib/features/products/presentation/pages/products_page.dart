@@ -7,6 +7,7 @@ import '../bloc/products_state.dart';
 import '../widgets/error_widget.dart';
 import '../widgets/loading_widget.dart';
 import '../widgets/product_card.dart';
+import 'product_detail_page.dart';
 
 /// Products List Page
 /// This is the main page that displays all products
@@ -88,18 +89,22 @@ class ProductsPage extends StatelessWidget {
                 itemCount: state.products.length,
                 itemBuilder: (context, index) {
                   final product = state.products[index];
-                  return ProductCard(
-                    product: product,
-                    onTap: () {
-                      // TODO: Navigate to product detail page
-                      // We can add this later
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Tapped on ${product.title}'),
-                          duration: const Duration(seconds: 1),
-                        ),
-                      );
-                    },
+                  return Hero(
+                    tag: 'product-${product.id}',
+                    child: ProductCard(
+                      product: product,
+                      onTap: () {
+                        // Navigate to product detail page
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => ProductDetailPage(
+                              productId: product.id,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
                   );
                 },
               ),
@@ -122,9 +127,21 @@ class ProductsPage extends StatelessWidget {
                   itemCount: state.oldProducts.length,
                   itemBuilder: (context, index) {
                     final product = state.oldProducts[index];
-                    return ProductCard(
-                      product: product,
-                      onTap: () {},
+                    return Hero(
+                      tag: 'product-${product.id}',
+                      child: ProductCard(
+                        product: product,
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ProductDetailPage(
+                                productId: product.id,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
                     );
                   },
                 ),
