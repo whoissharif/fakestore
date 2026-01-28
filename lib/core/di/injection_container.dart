@@ -1,11 +1,11 @@
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:get_it/get_it.dart';
-import 'package:http/http.dart' as http;
 import '../../features/products/data/datasources/product_remote_datasource.dart';
 import '../../features/products/data/repositories/product_repository_impl.dart';
 import '../../features/products/domain/repositories/product_repository.dart';
 import '../../features/products/domain/usecases/get_all_products.dart';
 import '../../features/products/presentation/bloc/products_bloc.dart';
+import '../network/dio_client.dart';
 import '../network/network_info.dart';
 import '../theme/theme_cubit.dart';
 
@@ -40,7 +40,7 @@ Future<void> initializeDependencies() async {
   // Data Sources
   sl.registerLazySingleton<ProductRemoteDataSource>(
     () => ProductRemoteDataSourceImpl(
-      client: sl(),
+      dioClient: sl(),
     ),
   );
 
@@ -54,10 +54,10 @@ Future<void> initializeDependencies() async {
     () => NetworkInfoImpl(sl()),
   );
 
-  //! External Dependencies
+  // Dio Client - singleton for the entire app
+  sl.registerLazySingleton(() => DioClient());
 
-  // HTTP Client
-  sl.registerLazySingleton(() => http.Client());
+  //! External Dependencies
 
   // Connectivity
   sl.registerLazySingleton(() => Connectivity());

@@ -1,6 +1,6 @@
-import 'dart:convert';
-import 'package:http/http.dart' as http;
+import 'package:dio/dio.dart';
 import '../../../../core/error/failures.dart';
+import '../../../../core/network/dio_client.dart';
 import '../../../../core/utils/constants.dart';
 import '../models/product_model.dart';
 
@@ -11,52 +11,99 @@ abstract class ProductRemoteDataSource {
   Future<List<ProductModel>> getProductsByCategory(String category);
 }
 
-/// Implementation of remote data source using HTTP client
+/// Implementation of remote data source using Dio
+/// Dio provides better error handling, interceptors, and request cancellation
 class ProductRemoteDataSourceImpl implements ProductRemoteDataSource {
-  final http.Client client;
+  final DioClient dioClient;
 
-  ProductRemoteDataSourceImpl({required this.client});
+  ProductRemoteDataSourceImpl({required this.dioClient});
 
   @override
   Future<List<ProductModel>> getAllProducts() async {
-    return await _getProductsFromUrl(
-      '${ApiConstants.baseUrl}${ApiConstants.productsEndpoint}',
-    );
+    try {
+      final response = await dioClient.get(
+        ApiConstants.productsEndpoint,
+      );
+
+      // Dio automatically decodes JSON
+      final List<dynamic> jsonList = response.data;
+      return jsonList.map((json) => ProductModel.fromJson(json)).toList();
+    } on DioException catch (e) {
+      throw _handleDioError(e);
+    } catch (e) {
+      throw ServerFailure('Unexpected error: ${e.toString()}');
+    }
   }
 
   @override
   Future<ProductModel> getProductById(int id) async {
-    final response = await client.get(
-      Uri.parse('${ApiConstants.baseUrl}${ApiConstants.productsEndpoint}/$id'),
-      headers: {'Content-Type': 'application/json'},
-    );
+    try {
+      final response = await dioClient.get(
+        '${ApiConstants.productsEndpoint}/$id',
+      );
 
-    if (response.statusCode == 200) {
-      return ProductModel.fromJson(json.decode(response.body));
-    } else {
-      throw ServerFailure('Failed to load product');
+      return ProductModel.fromJson(response.data);
+    } on DioException catch (e) {
+      throw _handleDioError(e);
+    } catch (e) {
+      throw ServerFailure('Unexpected error: ${e.toString()}');
     }
   }
 
   @override
   Future<List<ProductModel>> getProductsByCategory(String category) async {
-    return await _getProductsFromUrl(
-      '${ApiConstants.baseUrl}${ApiConstants.productsEndpoint}/category/$category',
-    );
+    try {
+      final response = await dioClient.get(
+        '${ApiConstants.productsEndpoint}/category/$category',
+      );
+
+      final List<dynamic> jsonList = response.data;
+      return jsonList.map((json) => ProductModel.fromJson(json)).toList();
+    } on DioException catch (e) {
+      throw _handleDioError(e);
+    } catch (e) {
+      throw ServerFailure('Unexpected error: ${e.toString()}');
+    }
   }
 
-  /// Helper method to reduce code duplication
-  Future<List<ProductModel>> _getProductsFromUrl(String url) async {
-    final response = await client.get(
-      Uri.parse(url),
-      headers: {'Content-Type': 'application/json'},
-    );
+  /// Handle Dio errors and convert to appropriate Failures
+  /// This centralizes error handling logic
+  Failure _handleDioError(DioException error) {
+    switch (error.type) {
+      case DioExceptionType.connectionTimeout:
+      case DioExceptionType.sendTimeout:
+      case DioExceptionType.receiveTimeout:
+        return const NetworkFailure('Connection timeout');
 
-    if (response.statusCode == 200) {
-      final List<dynamic> jsonList = json.decode(response.body);
-      return jsonList.map((json) => ProductModel.fromJson(json)).toList();
-    } else {
-      throw ServerFailure('Failed to load products');
+      case DioExceptionType.badResponse:
+        // Server responded with an error
+        final statusCode = error.response?.statusCode;
+        switch (statusCode) {
+          case 400:
+            return const ServerFailure('Bad request');
+          case 401:
+            return const ServerFailure('Unauthorized');
+          case 403:
+            return const ServerFailure('Forbidden');
+          case 404:
+            return const ServerFailure('Not found');
+          case 500:
+            return const ServerFailure('Internal server error');
+          default:
+            return ServerFailure('Server error: $statusCode');
+        }
+
+      case DioExceptionType.connectionError:
+        return const NetworkFailure('No internet connection');
+
+      case DioExceptionType.cancel:
+        return const ServerFailure('Request cancelled');
+
+      case DioExceptionType.badCertificate:
+        return const ServerFailure('Bad certificate');
+
+      case DioExceptionType.unknown:
+        return ServerFailure('Unknown error: ${error.message}');
     }
   }
 }
